@@ -20,9 +20,6 @@ class LinearTools:
         """Execute a GraphQL query against the Linear API with fallback mechanisms."""
         variables = variables or {}
         
-        print(f"Executing GraphQL query with variables: {json.dumps(variables)}")
-        print(f"Full query: {query}")
-        
         # Try multiple possible methods that might exist in the client library
         try:
             # First try client.query() if it exists
@@ -79,6 +76,7 @@ class LinearTools:
             - assignee: Optional assignee name to filter by
             - assigneeId: Optional assignee user ID to filter by
             - first: Optional number of issues to return (default: 50)
+            - title: Optional title to filter by
         
         Returns:
         - Dictionary containing list of issues
@@ -99,7 +97,9 @@ class LinearTools:
             filter_parts.append(f'priority: {{ eq: {params["priority"]} }}')
         if params.get("assignee"):
             filter_parts.append(f'assignee: {{ name: {{ contains: "{params["assignee"]}" }} }}')
-
+        if params.get("title"):
+            filter_parts.append(f'title: {{ contains: "{params["title"]}" }}')
+            
         filter_string = ", ".join(filter_parts)
         filter_arg = f"filter: {{ {filter_string} }}" if filter_string else ""
         

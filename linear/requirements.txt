@@ -1,5 +1,6 @@
 # Linear MCP Server Requirements
-
+dotenv
+mcp-use
 # Linear API
 linear-python==0.2.2
 

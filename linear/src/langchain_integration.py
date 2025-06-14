@@ -82,15 +82,22 @@ class ListIssuesTool(BaseTool):
     name: str = "list_issues"
     description: str = "List Linear issues with various filter parameters"
     
-    def _run(self, params: Union[Dict[str, Any], str, int] = None) -> Dict[str, Any]:
+    def _run(self, **kwargs) -> Dict[str, Any]:
+        # Collect all keyword arguments into a dictionary
+        params = kwargs
         return asyncio.run(list_issues_tool_func(params))
     
-    async def _arun(self, params: Union[Dict[str, Any], str, int] = None) -> Dict[str, Any]:
+    async def _arun(self, **kwargs) -> Dict[str, Any]:
+        # Collect all keyword arguments into a dictionary
+        params = kwargs
         return await list_issues_tool_func(params)
 
 class GetIssueTool(BaseTool):
     name: str = "get_issue"
-    description: str = "Get a specific Linear issue by ID"
+    description: str = """Get a specific Linear issue by ID. 
+    You must provide the issue ID as a string parameter (e.g., "INF-10", "INF-11").
+    Do not pass a dictionary or object, just the ID string directly.
+    Example: get_issue("INF-10")"""
     
     def _run(self, params: Union[Dict[str, Any], str] = None) -> Dict[str, Any]:
         return asyncio.run(get_issue_tool_func(params))
