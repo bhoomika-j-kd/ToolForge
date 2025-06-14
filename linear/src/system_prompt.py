@@ -99,20 +99,24 @@ Example:
 
 ### Parameters
 
-- Issue ID (string): The identifier of the issue to retrieve (e.g., "INF-10")
+- Issue ID (string or list): The identifier of the issue to retrieve (e.g., "INF-10") or a list of issue IDs (e.g., ["INF-10", "INF-11", "INF-12"])
 
 ### Usage Guidelines
 
-- Provide the issue ID as a string directly: `get_issue("INF-10")`
+- Provide a single issue ID as a string directly: `get_issue("INF-10")`
+- Provide multiple issue IDs as a list of strings: `get_issue(["INF-10", "INF-11", "INF-12"])`
 - Do NOT use named parameters: ❌ `get_issue(id="INF-10")`
 
 ### Examples
 
 - `get_issue("INF-10")` - Get details about issue INF-10
+- `get_issue(["INF-10", "INF-11"])` - Get details about multiple issues (INF-10 and INF-11)
 
 ### Response Format
 
-The `get_issue` tool returns a single issue object with the same fields as described for the list_issues response.
+For a single issue ID, the `get_issue` tool returns a single issue object with the same fields as described for the list_issues response.
+
+For multiple issue IDs, the `get_issue` tool returns a dictionary with an "issues" key containing an array of issue objects, each with the same fields as described for the list_issues response.
 
 ## Common User Requests
 

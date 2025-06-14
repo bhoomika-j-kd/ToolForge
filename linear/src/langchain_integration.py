@@ -51,15 +51,15 @@ async def list_issues_tool_func(params: Union[Dict[str, Any], str, int] = None) 
         raise ToolException(error_msg)
 
 
-async def get_issue_tool_func(params: Union[Dict[str, Any], str] = None) -> Dict[str, Any]:
+async def get_issue_tool_func(params: Union[Dict[str, Any], str, List[str]] = None) -> Dict[str, Any]:
     """
-    Get a specific Linear issue by ID.
+    Get one or more Linear issues by ID.
     
     Parameters:
-    - params: Either a dictionary with an 'id' key or a string ID
+    - params: Either a dictionary with an 'id' key, a string ID, or a list of string IDs
     
     Returns:
-    - Dictionary containing issue details
+    - Dictionary containing issue details or a list of issue details
     """
     try:
         # Log the parameters for debugging
@@ -68,12 +68,20 @@ async def get_issue_tool_func(params: Union[Dict[str, Any], str] = None) -> Dict
         # Call the Linear API
         if isinstance(params, str):
             return await linear_tools.get_issue(params)
+        elif isinstance(params, list):
+            # Check if all items are strings
+            if all(isinstance(item, str) for item in params):
+                return await linear_tools.get_issue(params)
+            else:
+                error_msg = "Invalid parameters: Expected a list of issue ID strings"
+                print(error_msg)
+                raise ToolException(error_msg)
         else:
-            error_msg = "Invalid parameters: Expected an issue ID string"
+            error_msg = "Invalid parameters: Expected an issue ID string or a list of issue ID strings"
             print(error_msg)
             raise ToolException(error_msg)
     except Exception as e:
-        error_msg = f"Error fetching issue: {str(e)}"
+        error_msg = f"Error fetching issue(s): {str(e)}"
         print(error_msg)
         raise ToolException(error_msg)
 
@@ -94,15 +102,15 @@ class ListIssuesTool(BaseTool):
 
 class GetIssueTool(BaseTool):
     name: str = "get_issue"
-    description: str = """Get a specific Linear issue by ID. 
-    You must provide the issue ID as a string parameter (e.g., "INF-10", "INF-11").
-    Do not pass a dictionary or object, just the ID string directly.
-    Example: get_issue("INF-10")"""
+    description: str = """Get one or more Linear issues by ID. 
+    You must provide the issue ID(s) as a string parameter (e.g., "INF-10", "INF-11") or a list of string parameters (e.g., ["INF-10", "INF-11"]).
+    Do not pass a dictionary or object, just the ID string(s) directly.
+    Example: get_issue("INF-10") or get_issue(["INF-10", "INF-11"])"""
     
-    def _run(self, params: Union[Dict[str, Any], str] = None) -> Dict[str, Any]:
+    def _run(self, params: Union[Dict[str, Any], str, List[str]] = None) -> Dict[str, Any]:
         return asyncio.run(get_issue_tool_func(params))
     
-    async def _arun(self, params: Union[Dict[str, Any], str] = None) -> Dict[str, Any]:
+    async def _arun(self, params: Union[Dict[str, Any], str, List[str]] = None) -> Dict[str, Any]:
         return await get_issue_tool_func(params)
 
 # Create the Linear MCP function

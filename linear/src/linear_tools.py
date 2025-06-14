@@ -200,88 +200,105 @@ class LinearTools:
             print(error_msg)
             return {"error": error_msg}
     
-    async def get_issue(self, id: str) -> Dict[str, Any]:
+    async def get_issue(self, id: Union[str, List[str]]) -> Dict[str, Any]:
         """
-        Get a specific Linear issue by ID.
+        Get one or more Linear issues by ID.
         
         Parameters:
-        - id: The ID of the issue to retrieve
+        - id: The ID of the issue to retrieve, or a list of issue IDs
         
         Returns:
-        - Dictionary containing issue details
+        - Dictionary containing issue details, or a list of issue details
         """
-        query = """
-        query Issue($id: ID!) {
-            issue(id: $id) {
-                id
-                title
-                identifier
-                description
-                priority
-                state {
+        # If a single ID is provided, convert to list for uniform processing
+        if isinstance(id, str):
+            ids = [id]
+            return_single = True
+        else:
+            ids = id
+            return_single = False
+            
+        results = []
+        
+        for issue_id in ids:
+            query = """
+            query Issue($id: String!) {
+                issue(id: $id) {
                     id
-                    name
-                    type
-                }
-                assignee {
-                    id
-                    name
-                    displayName
-                }
-                team {
-                    id
-                    name
-                    key
-                }
-                labels {
-                    nodes {
+                    title
+                    identifier
+                    description
+                    priority
+                    state {
                         id
                         name
-                        color
+                        type
                     }
+                    assignee {
+                        id
+                        name
+                        displayName
+                    }
+                    team {
+                        id
+                        name
+                        key
+                    }
+                    labels {
+                        nodes {
+                            id
+                            name
+                            color
+                        }
+                    }
+                    createdAt
+                    updatedAt
                 }
-                createdAt
-                updatedAt
             }
-        }
-        """
+            """
+            
+            variables = {"id": issue_id}
+            
+            try:
+                result = await self._execute_graphql(query, variables)
+                
+                if "data" not in result or "issue" not in result["data"]:
+                    results.append({"error": f"Unexpected response format for issue {issue_id}: {json.dumps(result)}"})
+                    continue
+                
+                issue = result["data"]["issue"]
+                if not issue:
+                    results.append({"error": f"Issue with ID {issue_id} not found"})
+                    continue
+                
+                # Process the response to flatten and simplify the structure
+                processed_issue = {
+                    "id": issue["id"],
+                    "title": issue["title"],
+                    "identifier": issue["identifier"],
+                    "description": issue["description"],
+                    "priority": issue["priority"],
+                    "status": issue["state"]["name"] if issue["state"] else None,
+                    "state_type": issue["state"]["type"] if issue["state"] else None,
+                    "state_id": issue["state"]["id"] if issue["state"] else None,
+                    "assignee": issue["assignee"]["name"] if issue["assignee"] else None,
+                    "assignee_id": issue["assignee"]["id"] if issue["assignee"] else None,
+                    "team": issue["team"]["name"] if issue["team"] else None,
+                    "team_id": issue["team"]["id"] if issue["team"] else None,
+                    "team_key": issue["team"]["key"] if issue["team"] else None,
+                    "labels": [{"id": label["id"], "name": label["name"], "color": label["color"]} 
+                              for label in issue["labels"]["nodes"]] if issue["labels"] else [],
+                    "created_at": issue["createdAt"],
+                    "updated_at": issue["updatedAt"]
+                }
+                
+                results.append(processed_issue)
+            
+            except Exception as e:
+                results.append({"error": f"Error getting issue {issue_id}: {str(e)}"})
         
-        variables = {"id": id}
+        # Return a single result if only one ID was provided
+        if return_single:
+            return results[0]
         
-        try:
-            result = await self._execute_graphql(query, variables)
-            
-            if "data" not in result or "issue" not in result["data"]:
-                raise Exception(f"Unexpected response format: {json.dumps(result)}")
-            
-            issue = result["data"]["issue"]
-            if not issue:
-                return {"error": f"Issue with ID {id} not found"}
-            
-            # Process the response to flatten and simplify the structure
-            processed_issue = {
-                "id": issue["id"],
-                "title": issue["title"],
-                "identifier": issue["identifier"],
-                "description": issue["description"],
-                "priority": issue["priority"],
-                "status": issue["state"]["name"] if issue["state"] else None,
-                "state_type": issue["state"]["type"] if issue["state"] else None,
-                "state_id": issue["state"]["id"] if issue["state"] else None,
-                "assignee": issue["assignee"]["name"] if issue["assignee"] else None,
-                "assignee_id": issue["assignee"]["id"] if issue["assignee"] else None,
-                "team": issue["team"]["name"] if issue["team"] else None,
-                "team_id": issue["team"]["id"] if issue["team"] else None,
-                "team_key": issue["team"]["key"] if issue["team"] else None,
-                "labels": [{"id": label["id"], "name": label["name"], "color": label["color"]} 
-                          for label in issue["labels"]["nodes"]] if issue["labels"] else [],
-                "created_at": issue["createdAt"],
-                "updated_at": issue["updatedAt"]
-            }
-            
-            return processed_issue
-        
-        except Exception as e:
-            error_msg = f"Error getting issue: {str(e)}"
-            print(error_msg)
-            return {"error": error_msg}
+        return {"issues": results}
