@@ -85,19 +85,6 @@ class LinearTools:
         """
         params = params or {}
         
-        # Handle priority text values
-        if isinstance(params.get("priority"), str):
-            priority_map = {
-                "urgent": 1,
-                "high": 2,
-                "medium": 3,
-                "low": 4,
-                "none": 0
-            }
-            priority_value = priority_map.get(params["priority"].lower())
-            if priority_value is not None:
-                params["priority"] = priority_value
-        
         # Build the filter object for the GraphQL query
         filter_parts = []
         if params.get("teamId"):
@@ -108,19 +95,11 @@ class LinearTools:
             filter_parts.append(f'labels: {{ id: {{ eq: "{params["labelId"]}" }} }}')
         if params.get("stateId"):
             filter_parts.append(f'state: {{ id: {{ eq: "{params["stateId"]}" }} }}')
-        if params.get("priority") is not None:
+        if params.get("priority"):
             filter_parts.append(f'priority: {{ eq: {params["priority"]} }}')
-        
-        # Handle assignee - check if it's a name or ID
-        if params.get("unassigned") is True:
-            # For unassigned issues, we need to check if assignee is null
-            filter_parts.append('assignee: { id: { eq: null } }')
-        elif params.get("assignee"):
-            # Use assignee name with contains operator for more flexible matching
+        if params.get("assignee"):
             filter_parts.append(f'assignee: {{ name: {{ contains: "{params["assignee"]}" }} }}')
-        elif params.get("assigneeId"):
-            filter_parts.append(f'assignee: {{ id: {{ eq: "{params["assigneeId"]}" }} }}')
-        
+
         filter_string = ", ".join(filter_parts)
         filter_arg = f"filter: {{ {filter_string} }}" if filter_string else ""
         
@@ -168,10 +147,10 @@ class LinearTools:
         variables = {"first": first}
         
         # Log the query and parameters for debugging
-        print(f"GraphQL Query: {query}")
-        print(f"Variables: {variables}")
-        print(f"Filter parts: {filter_parts}")
-        print(f"Original params: {params}")
+        # print(f"GraphQL Query: {query}")
+        # print(f"Variables: {variables}")
+        # print(f"Filter parts: {filter_parts}")
+        # print(f"Original params: {params}")
         
         try:
             result = await self._execute_graphql(query, variables)

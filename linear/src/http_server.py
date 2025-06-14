@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.callbacks.manager import CallbackManager
 
-from langchain_integration import create_linear_mcp, create_streaming_linear_mcp
+from langchain_integration import create_linear_mcp
 
 # Load environment variables
 load_dotenv()
@@ -39,7 +39,6 @@ linear_mcp = create_linear_mcp()
 # Define request models
 class QueryRequest(BaseModel):
     query: str
-    stream: bool = False
 
 # Define response models
 class QueryResponse(BaseModel):
@@ -91,43 +90,6 @@ async def process_query(request: QueryRequest):
         return {"result": result}
     except Exception as e:
         return {"result": {"error": str(e)}}
-
-@app.post("/query/stream")
-async def process_query_stream(request: QueryRequest):
-    """Process a natural language query for Linear with streaming response."""
-    
-    async def event_generator():
-        try:
-            # Create streaming callback handler
-            handler = StreamingCallbackHandler()
-            callback_manager = CallbackManager([handler])
-            
-            # Create streaming MCP
-            streaming_mcp = await create_streaming_linear_mcp(callback_manager)
-            
-            # Start processing in the background
-            task = asyncio.create_task(streaming_mcp(request.query))
-            
-            # Stream events until processing is complete
-            while handler.is_running or not handler.queue.empty():
-                try:
-                    event = await asyncio.wait_for(handler.queue.get(), timeout=0.1)
-                    yield event
-                except asyncio.TimeoutError:
-                    if task.done():
-                        handler.done()
-                        
-                        # Get the final result
-                        result = task.result()
-                        yield json.dumps({"type": "final_result", "result": result}) + "\n"
-            
-        except Exception as e:
-            yield json.dumps({"type": "error", "error": str(e)}) + "\n"
-    
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream"
-    )
 
 @app.get("/health")
 async def health_check():
