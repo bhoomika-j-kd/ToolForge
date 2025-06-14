@@ -71,7 +71,9 @@ class LinearTools:
             - teamId: Optional team ID to filter by
             - projectId: Optional project ID to filter by
             - labelId: Optional label ID to filter by
+            - label: Optional label name to filter by
             - stateId: Optional workflow state ID to filter by
+            - status: Optional status to filter by
             - priority: Optional priority level (0-4) to filter by
             - assignee: Optional assignee name to filter by
             - assigneeId: Optional assignee user ID to filter by
@@ -91,12 +93,20 @@ class LinearTools:
             filter_parts.append(f'project: {{ id: {{ eq: "{params["projectId"]}" }} }}')
         if params.get("labelId"):
             filter_parts.append(f'labels: {{ id: {{ eq: "{params["labelId"]}" }} }}')
+        if params.get("label"):
+            filter_parts.append(f'labels: {{ name: {{ eq: "{params["label"]}" }} }}')
         if params.get("stateId"):
             filter_parts.append(f'state: {{ id: {{ eq: "{params["stateId"]}" }} }}')
+        if params.get("status"):
+            filter_parts.append(f'state: {{ name: {{ eq: "{params["status"]}" }} }}')
         if params.get("priority"):
             filter_parts.append(f'priority: {{ eq: {params["priority"]} }}')
-        if params.get("assignee"):
-            filter_parts.append(f'assignee: {{ name: {{ contains: "{params["assignee"]}" }} }}')
+        if params.get("assignee") is not None:
+            if params["assignee"] == "":
+                # Empty string means filter for unassigned issues
+                filter_parts.append(f'assignee: {{ null: true }}')
+            else:
+                filter_parts.append(f'assignee: {{ name: {{ contains: "{params["assignee"]}" }} }}')
         if params.get("title"):
             filter_parts.append(f'title: {{ contains: "{params["title"]}" }}')
             

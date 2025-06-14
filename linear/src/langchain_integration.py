@@ -153,7 +153,11 @@ def create_linear_mcp():
                 return {"message": result["output"]}
             return result["output"]
         except Exception as e:
-            error_msg = f"Error processing query: {str(e)}"
+            error_str = str(e)
+            # Check for context length exceeded error
+            if "context_length_exceeded" in error_str or "maximum context length" in error_str:
+                return {"message": "Your search returned too many results. Please narrow your search by adding more specific filters (status, priority, assignee, label, etc)."}
+            error_msg = f"Error processing query: {error_str}"
             print(error_msg)
             return {"error": error_msg}
     
