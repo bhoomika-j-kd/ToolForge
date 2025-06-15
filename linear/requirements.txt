@@ -1,6 +1,6 @@
 # Linear MCP Server Requirements
 dotenv
-mcp-use
+mcp>=1.5.0
 # Linear API
 linear-python==0.2.2
 
