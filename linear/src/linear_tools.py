@@ -77,6 +77,7 @@ class LinearTools:
             - priority: Optional priority level (0-4) to filter by
             - assignee: Optional assignee name to filter by
             - assigneeId: Optional assignee user ID to filter by
+            - cycle: Optional cycle name to filter by
             - first: Optional number of issues to return (default: 50)
             - title: Optional title to filter by
         
@@ -109,6 +110,8 @@ class LinearTools:
                 filter_parts.append(f'assignee: {{ name: {{ contains: "{params["assignee"]}" }} }}')
         if params.get("title"):
             filter_parts.append(f'title: {{ contains: "{params["title"]}" }}')
+        if params.get("cycle"):
+            filter_parts.append(f'cycle: {{ name: {{ eq: "{params["cycle"]}" }} }}')
             
         filter_string = ", ".join(filter_parts)
         filter_arg = f"filter: {{ {filter_string} }}" if filter_string else ""
@@ -139,6 +142,13 @@ class LinearTools:
                         id
                         name
                         key
+                    }}
+                    cycle {{
+                        id
+                        name
+                        number
+                        startsAt
+                        endsAt
                     }}
                     labels {{
                         nodes {{
@@ -186,6 +196,13 @@ class LinearTools:
                     "team": issue["team"]["name"] if issue["team"] else None,
                     "team_id": issue["team"]["id"] if issue["team"] else None,
                     "team_key": issue["team"]["key"] if issue["team"] else None,
+                    "cycle": {
+                        "id": issue["cycle"]["id"],
+                        "name": issue["cycle"]["name"],
+                        "number": issue["cycle"]["number"],
+                        "starts_at": issue["cycle"]["startsAt"],
+                        "ends_at": issue["cycle"]["endsAt"]
+                    } if issue.get("cycle") else None,
                     "labels": [{"id": label["id"], "name": label["name"], "color": label["color"]} 
                               for label in issue["labels"]["nodes"]] if issue["labels"] else [],
                     "created_at": issue["createdAt"],
@@ -244,6 +261,13 @@ class LinearTools:
                         name
                         key
                     }
+                    cycle {
+                        id
+                        name
+                        number
+                        startsAt
+                        endsAt
+                    }
                     labels {
                         nodes {
                             id
@@ -286,6 +310,13 @@ class LinearTools:
                     "team": issue["team"]["name"] if issue["team"] else None,
                     "team_id": issue["team"]["id"] if issue["team"] else None,
                     "team_key": issue["team"]["key"] if issue["team"] else None,
+                    "cycle": {
+                        "id": issue["cycle"]["id"],
+                        "name": issue["cycle"]["name"],
+                        "number": issue["cycle"]["number"],
+                        "starts_at": issue["cycle"]["startsAt"],
+                        "ends_at": issue["cycle"]["endsAt"]
+                    } if issue.get("cycle") else None,
                     "labels": [{"id": label["id"], "name": label["name"], "color": label["color"]} 
                               for label in issue["labels"]["nodes"]] if issue["labels"] else [],
                     "created_at": issue["createdAt"],
@@ -302,3 +333,125 @@ class LinearTools:
             return results[0]
         
         return {"issues": results}
+
+    async def get_cycle_status(self, cycle_name: str) -> Dict[str, Any]:
+        """
+        Get status update for a specific cycle with ticket counts by status,
+        completion percentage, and progress tracking.
+        
+        Parameters:
+        - cycle_name: Name of the cycle to get status for (e.g., "Sprint 19")
+        
+        Returns:
+        - Dictionary containing cycle status information:
+            - cycle_details: Basic cycle information (name, number, dates)
+            - ticket_counts: Count of tickets by status
+            - completion_stats: Overall completion metrics
+            - progress_tracking: Assessment of cycle progress
+        """
+        # First, get all issues for this cycle
+        issues = await self.list_issues({"cycle": cycle_name})
+        
+        if not issues or not issues.get("nodes"):
+            return {
+                "error": f"No issues found for cycle '{cycle_name}' or cycle does not exist"
+            }
+            
+        # Get cycle details from the first issue
+        cycle_info = None
+        for issue in issues["nodes"]:
+            if issue.get("cycle"):
+                cycle_info = issue["cycle"]
+                break
+                
+        if not cycle_info:
+            return {
+                "error": f"Could not retrieve cycle information for '{cycle_name}'"
+            }
+        
+        # Count tickets by status
+        status_counts = {}
+        completed_count = 0
+        total_count = len(issues["nodes"])
+        
+        # Group issues by status for expandable sections
+        issues_by_status = {}
+        
+        for issue in issues["nodes"]:
+            status = issue.get("status")
+            if not status:
+                continue
+                
+            if status not in status_counts:
+                status_counts[status] = 0
+                issues_by_status[status] = []
+                
+            status_counts[status] += 1
+            
+            # Add issue to the appropriate status group
+            issues_by_status[status].append({
+                "id": issue.get("identifier"),
+                "title": issue.get("title")
+            })
+            
+            # Count completed tickets (typically "Done" or "Completed" status)
+            # This logic might need adjustment based on your Linear workflow
+            if status.lower() in ["done", "completed", "cancelled", "canceled"]:
+                completed_count += 1
+        
+        # Calculate completion percentage
+        completion_percentage = (completed_count / total_count * 100) if total_count > 0 else 0
+        
+        # Calculate days left in cycle
+        from datetime import datetime, timezone
+        import dateutil.parser
+        
+        now = datetime.now(timezone.utc)
+        cycle_end = dateutil.parser.parse(cycle_info["ends_at"])
+        cycle_start = dateutil.parser.parse(cycle_info["starts_at"])
+        
+        total_days = (cycle_end - cycle_start).days
+        days_passed = (now - cycle_start).days
+        days_left = (cycle_end - now).days
+        
+        # Simple progress tracking assessment
+        on_track = False
+        reason = ""
+        
+        if days_left <= 0:
+            on_track = False
+            reason = "Cycle has ended"
+        elif completion_percentage >= (days_passed / total_days * 100):
+            on_track = True
+            reason = f"Completion rate ({completion_percentage:.1f}%) is on pace with time elapsed ({days_passed / total_days * 100:.1f}%)"
+        else:
+            on_track = False
+            expected_completion = days_passed / total_days * 100
+            reason = f"Completion rate ({completion_percentage:.1f}%) is behind time elapsed ({expected_completion:.1f}%)"
+        
+        return {
+            "cycle_details": {
+                "name": cycle_info["name"],
+                "number": cycle_info["number"],
+                "starts_at": cycle_info["starts_at"],
+                "ends_at": cycle_info["ends_at"],
+                "total_days": total_days,
+                "days_passed": days_passed,
+                "days_left": days_left
+            },
+            "ticket_counts": {
+                "total": total_count,
+                "by_status": status_counts,
+                "completed": completed_count,
+                "remaining": total_count - completed_count
+            },
+            "completion_stats": {
+                "percentage": completion_percentage,
+                "time_elapsed_percentage": (days_passed / total_days * 100) if total_days > 0 else 100
+            },
+            "progress_tracking": {
+                "on_track": on_track,
+                "reason": reason
+            },
+            "issues_by_status": issues_by_status
+        }

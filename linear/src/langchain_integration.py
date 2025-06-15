@@ -62,26 +62,62 @@ async def get_issue_tool_func(params: Union[Dict[str, Any], str, List[str]] = No
     - Dictionary containing issue details or a list of issue details
     """
     try:
+        # Handle different parameter types
+        if params is None:
+            raise ValueError("Issue ID is required")
+            
         # Log the parameters for debugging
         print(f"Calling get_issue with params: {params}")
         
         # Call the Linear API
-        if isinstance(params, str):
-            return await linear_tools.get_issue(params)
-        elif isinstance(params, list):
-            # Check if all items are strings
-            if all(isinstance(item, str) for item in params):
-                return await linear_tools.get_issue(params)
-            else:
-                error_msg = "Invalid parameters: Expected a list of issue ID strings"
-                print(error_msg)
-                raise ToolException(error_msg)
-        else:
-            error_msg = "Invalid parameters: Expected an issue ID string or a list of issue ID strings"
-            print(error_msg)
-            raise ToolException(error_msg)
+        return await linear_tools.get_issue(params)
     except Exception as e:
-        error_msg = f"Error fetching issue(s): {str(e)}"
+        error_msg = f"Error getting issue: {str(e)}"
+        print(error_msg)
+        raise ToolException(error_msg)
+
+async def get_cycle_status_tool_func(cycle_name: str) -> Dict[str, Any]:
+    """
+    Get status update for a specific cycle with ticket counts by status,
+    completion percentage, and progress tracking.
+    
+    Parameters:
+    - cycle_name: Name of the cycle to get status for (e.g., "Sprint 19")
+    
+    Returns:
+    - Dictionary containing cycle status information
+    """
+    try:
+        if not cycle_name:
+            raise ValueError("Cycle name is required")
+            
+        # Log the parameters for debugging
+        print(f"Calling get_cycle_status with cycle_name: {cycle_name}")
+        
+        # Call the Linear API
+        result = await linear_tools.get_cycle_status(cycle_name)
+        
+        # Check for errors
+        if "error" in result:
+            return result
+            
+        # Format the response with expandable ticket lists
+        cycle_details = result["cycle_details"]
+        ticket_counts = result["ticket_counts"]
+        completion_stats = result["completion_stats"]
+        progress_tracking = result["progress_tracking"]
+        issues_by_status = result.get("issues_by_status", {})
+        
+        # Return the formatted result
+        return {
+            "cycle_details": cycle_details,
+            "ticket_counts": ticket_counts,
+            "completion_stats": completion_stats,
+            "progress_tracking": progress_tracking,
+            "issues_by_status": issues_by_status
+        }
+    except Exception as e:
+        error_msg = f"Error getting cycle status: {str(e)}"
         print(error_msg)
         raise ToolException(error_msg)
 
@@ -113,6 +149,21 @@ class GetIssueTool(BaseTool):
     async def _arun(self, params: Union[Dict[str, Any], str, List[str]] = None) -> Dict[str, Any]:
         return await get_issue_tool_func(params)
 
+class CycleStatusTool(BaseTool):
+    name: str = "get_cycle_status"
+    description: str = """Get status update for a specific cycle with ticket counts by status,
+    completion percentage, and progress tracking.
+    
+    You must provide the cycle name as a string parameter (e.g., "Sprint 19").
+    Example: get_cycle_status("Sprint 19")
+    """
+    
+    def _run(self, cycle_name: str) -> Dict[str, Any]:
+        raise NotImplementedError("This tool does not support synchronous execution")
+        
+    async def _arun(self, cycle_name: str) -> Dict[str, Any]:
+        return await get_cycle_status_tool_func(cycle_name)
+
 # Create the Linear MCP function
 def create_linear_mcp():
     """
@@ -124,7 +175,8 @@ def create_linear_mcp():
     # 1. Define list of tools
     tools = [
         ListIssuesTool(),
-        GetIssueTool()
+        GetIssueTool(),
+        CycleStatusTool()
     ]
     
     # 2. Create the LLM with explicit API key
