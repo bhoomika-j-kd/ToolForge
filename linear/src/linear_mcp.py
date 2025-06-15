@@ -126,7 +126,7 @@ async def call_tool(name, arguments):
                 result = await linear_tools.list_issues(params)
                 log_message(f"list_issues result type: {type(result)}")
                 log_message(f"list_issues result: {json.dumps(result, default=str)[:1000]}...")
-                return json.dumps(result)
+                return [TextContent(type="text", text=json.dumps(result))]
             except Exception as api_error:
                 log_message(f"API Error in list_issues: {str(api_error)}")
                 log_message("API Error Traceback:")
@@ -153,7 +153,7 @@ async def call_tool(name, arguments):
                 result = await linear_tools.get_issue(args.id)
                 log_message(f"get_issue result type: {type(result)}")
                 log_message(f"get_issue result: {json.dumps(result, default=str)[:1000]}...")
-                return json.dumps(result)
+                return [TextContent(type="text", text=json.dumps(result))]
             except Exception as api_error:
                 log_message(f"API Error in get_issue: {str(api_error)}")
                 log_message("API Error Traceback:")
@@ -180,7 +180,7 @@ async def call_tool(name, arguments):
                 result = await linear_tools.get_cycle_status(args.cycle_name)
                 log_message(f"get_cycle_status result type: {type(result)}")
                 log_message(f"get_cycle_status result: {json.dumps(result, default=str)[:1000]}...")
-                return json.dumps(result)
+                return [TextContent(type="text", text=json.dumps(result))]
             except Exception as api_error:
                 log_message(f"API Error in get_cycle_status: {str(api_error)}")
                 log_message("API Error Traceback:")
